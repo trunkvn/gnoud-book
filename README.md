@@ -44,6 +44,27 @@ flowchart LR
 - **Next.js chỉ lo giao diện.** Mọi dữ liệu, xác thực và job nằm ở NestJS. Trình duyệt gọi `/api/...` trên cùng địa chỉ với web và Next chuyển tiếp sang API (rewrite), nên không cần CORS và cookie `httpOnly` đi lại tự nhiên.
 - **Một database cho mọi thứ**, kể cả hàng đợi job (pg-boss), nên không cần Redis.
 
+## API
+
+23 endpoint chia thành 8 nhóm, được mô tả đầy đủ bằng OpenAPI/Swagger. Chạy `pnpm dev` rồi mở **http://localhost:4000/docs** để xem và gọi thử trực tiếp (nút *Try it out*); `/docs-json` là file mô tả để import vào Postman. Ở production `/docs` mặc định tắt.
+
+![Swagger UI: toàn bộ API](docs/screenshots/swagger-overview.png)
+
+Mỗi endpoint có tham số, body mẫu và các mã phản hồi có thể gặp, ví dụ đặt lịch (`409` khi có người vừa đặt giờ đó, `429` khi bị giới hạn tốc độ):
+
+![Swagger UI: chi tiết endpoint đặt lịch](docs/screenshots/swagger-booking.png)
+
+| Nhóm | Endpoint | Đăng nhập? |
+|---|---|---|
+| Health | `GET /health` | không |
+| Auth | `POST /auth/register`, `/auth/login`, `/auth/logout`; `GET /auth/me` | `me` có |
+| Business | `GET`, `PATCH /business` | có |
+| Services | `GET`, `POST /services`; `PATCH`, `DELETE /services/{id}` | có |
+| Working hours | `GET`, `PUT /working-hours` | có |
+| Public booking | `GET /public/businesses/{slug}`, `/slots`; `POST /public/businesses/{slug}/appointments` | không (dành cho khách) |
+| Manage appointment | `GET /public/appointments/{token}`, `/slots`; `POST .../cancel`, `.../reschedule` | không, dùng token trong email |
+| Appointments (owner) | `GET /appointments`; `POST /appointments/{id}/cancel`, `/complete` | có |
+
 ## Những quyết định kỹ thuật đáng nói
 
 **1. Múi giờ làm đúng.** Mọi thời điểm lưu dạng `timestamptz` (UTC). Giờ làm việc được hiểu theo múi giờ của *cơ sở*; mỗi người xem thấy giờ theo múi giờ của *họ*. Cùng một lịch hẹn là 09:00 Thứ Hai ở Hà Nội, 11:00 ở Tokyo và 18:00 **Chủ Nhật** ở Los Angeles.
@@ -69,6 +90,7 @@ Một bài học: adapter Postgres của Prisma ghi và đọc `timestamptz` l�
 | Dữ liệu | PostgreSQL 17, Prisma 7 |
 | Job nền | pg-boss 12 |
 | Email | Nodemailer (Mailpit khi phát triển) |
+| Bảo vệ | @nestjs/throttler (giới hạn tốc độ), helmet, bcryptjs, JWT trong cookie `httpOnly` |
 | Thời gian | Luxon |
 | Kiểm thử | Vitest, Supertest |
 | Monorepo | Turborepo + pnpm workspaces |
@@ -111,7 +133,7 @@ pnpm dev
 | http://localhost:4000/docs | Tài liệu API (Swagger), thử trực tiếp được |
 | http://localhost:8025 | Hộp thư giả (Mailpit): xem email xác nhận, nhắc lịch |
 
-**Dữ liệu demo.** `db:seed` tạo một cơ sở `salon-demo` với dịch vụ, giờ làm việc và 30 lịch hẹn rải trong hai tuần. Đăng nhập: `demo@gnoud.dev` / `demo-password-123`; trang đặt lịch của khách: `/book/salon-demo`. Muốn trang chủ có liên kết "Xem thử trang đặt lịch mẫu", đặt `NEXT_PUBLIC_DEMO_SLUG=salon-demo` trong `apps/web/.env.local`. Script từ chối chạy khi `NODE_ENV=production`.
+**Dữ liệu demo.** `db:seed` tạo một cơ sở `salon-demo` với dịch vụ, giờ làm việc và 30 lịch hẹn rải trong hai tuần. Đăng nhập: `demo@gnoud.dev` / `demo-password-123`; trang đặt lịch của khách: `/book/salon-demo`. Muốn trang chủ có liên kết "Xem thử trang đặt lịch mẫu", đặt `NEXT_PUBLIC_DEMO_SLUG=salon-demo` trong `apps/web/.env.local`. Script từ chối chạy khi `NODE_ENV=production` trừ khi thêm `--force`; thêm `--no-emails` khi nạp vào server có SMTP thật, để job nhắc lịch không gửi thư tới các địa chỉ `@example.com` giả.
 
 **Thấy email nhắc lịch mà không phải chờ.** Đặt `REMINDER_SWEEP_CRON="* * * * *"` trong `apps/api/.env` (quét mỗi phút) rồi tạo một lịch hẹn trong vòng 24 giờ tới, đặt từ hơn 24 giờ trước (dữ liệu demo đã có sẵn loại này).
 
@@ -151,26 +173,32 @@ pnpm typecheck
 pnpm test                                       # unit test (api + web)
 pnpm --filter @gnoud-book/api test:e2e          # e2e trên PostgreSQL thật
 ```
+67 unit test API, 63 unit test web và 119 e2e test (11 file: đăng nhập, đặt lịch, đua nhau đặt cùng giờ, huỷ/đổi lịch, job nền, múi giờ, giới hạn tốc độ...).
+
 E2E dùng database `gnoud_book_test` (mặc định `postgresql://gnoud@localhost:5432/gnoud_book_test`; đặt biến `DATABASE_URL_TEST` nếu máy bạn khác). CI ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) chạy toàn bộ các lệnh trên cùng `pnpm build` với Postgres dạng service.
 
 ## Cấu trúc
 
 ```
-apps/
-├── api/                       NestJS
-│   ├── prisma/                schema + migration (có một migration viết tay cho ràng buộc chống trùng)
-│   ├── src/
-│   │   ├── auth/              đăng ký, đăng nhập, guard JWT
-│   │   ├── businesses|services|working-hours/   CRUD của chủ cơ sở
-│   │   ├── appointments/      chủ cơ sở xem, huỷ, hoàn thành lịch hẹn
-│   │   ├── public-booking/    slot trống, đặt lịch, khách huỷ/đổi lịch (API công khai)
-│   │   ├── jobs|notifications|mail/   hàng đợi pg-boss, logic gửi email, mẫu email
-│   │   └── seed/              dữ liệu demo (hàm thuần, có test)
-│   └── test/                  e2e
-└── web/                       Next.js
-    ├── app/                   trang: /, /login, /register, /book/[slug], /manage/[token], /dashboard/*
-    ├── components/            ui/ (hệ thiết kế), dashboard/, landing/
-    └── lib/                   hàm thuần (ngày tuần, bố cục lịch, giờ làm việc, múi giờ...) có test
+gnoud-book/
+├── apps/
+│   ├── api/                       NestJS
+│   │   ├── prisma/                schema + migration (có một migration viết tay cho ràng buộc chống trùng)
+│   │   ├── src/
+│   │   │   ├── auth/              đăng ký, đăng nhập, guard JWT
+│   │   │   ├── businesses|services|working-hours/   CRUD của chủ cơ sở
+│   │   │   ├── appointments/      chủ cơ sở xem, huỷ, hoàn thành lịch hẹn
+│   │   │   ├── public-booking/    slot trống, đặt lịch, khách huỷ/đổi lịch (API công khai)
+│   │   │   ├── jobs|notifications|mail/   hàng đợi pg-boss, logic gửi email, mẫu email
+│   │   │   ├── config/            kiểm tra cấu hình production, giới hạn tốc độ
+│   │   │   └── seed/              dữ liệu demo (hàm thuần, có test)
+│   │   └── test/                  e2e
+│   └── web/                       Next.js
+│       ├── app/                   trang: /, /login, /register, /book/[slug], /manage/[token], /dashboard/*
+│       ├── components/            ui/ (hệ thiết kế), dashboard/, landing/
+│       └── lib/                   hàm thuần (ngày tuần, bố cục lịch, giờ làm việc, múi giờ...) có test
+├── docs/                          hướng dẫn triển khai, ảnh chụp màn hình
+└── .github/workflows/             CI
 ```
 
 ## Hệ thiết kế
