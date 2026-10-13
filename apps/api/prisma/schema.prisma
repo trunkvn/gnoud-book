@@ -1,0 +1,100 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// Chủ cơ sở – người đăng nhập vào hệ thống quản lý
+model User {
+  id           String     @id @default(uuid(7))
+  email        String     @unique
+  passwordHash String
+  name         String
+  createdAt    DateTime   @default(now()) @db.Timestamptz(3)
+  updatedAt    DateTime   @updatedAt @db.Timestamptz(3)
+  businesses   Business[]
+}
+
+// Cơ sở kinh doanh. `timezone` là IANA timezone (vd "Asia/Ho_Chi_Minh"),
+// giờ làm việc được hiểu theo múi giờ này.
+model Business {
+  id           String         @id @default(uuid(7))
+  ownerId      String
+  owner        User           @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  name         String
+  slug         String         @unique
+  description  String?
+  timezone     String         @default("Asia/Ho_Chi_Minh")
+  createdAt    DateTime       @default(now()) @db.Timestamptz(3)
+  updatedAt    DateTime       @updatedAt @db.Timestamptz(3)
+  services     Service[]
+  workingHours WorkingHours[]
+  appointments Appointment[]
+
+  @@index([ownerId])
+}
+
+model Service {
+  id              String        @id @default(uuid(7))
+  businessId      String
+  business        Business      @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  name            String
+  description     String?
+  durationMinutes Int
+  // Giá theo đơn vị nhỏ nhất của tiền tệ (VND không có phần lẻ nên 150000 = 150.000đ)
+  price           Int
+  currency        String        @default("VND")
+  active          Boolean       @default(true)
+  createdAt       DateTime      @default(now()) @db.Timestamptz(3)
+  updatedAt       DateTime      @updatedAt @db.Timestamptz(3)
+  appointments    Appointment[]
+
+  @@index([businessId])
+}
+
+// Giờ làm việc theo tuần. Một ngày có thể có nhiều khoảng (vd nghỉ trưa).
+// dayOfWeek: 0 = Chủ nhật … 6 = Thứ bảy. startMinute/endMinute là số phút kể từ 00:00
+// theo múi giờ của Business (vd 9:00 = 540, 17:30 = 1050).
+model WorkingHours {
+  id          String   @id @default(uuid(7))
+  businessId  String
+  business    Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  dayOfWeek   Int
+  startMinute Int
+  endMinute   Int
+
+  @@unique([businessId, dayOfWeek, startMinute])
+}
+
+enum AppointmentStatus {
+  CONFIRMED
+  CANCELLED
+  COMPLETED
+}
+
+// Lịch hẹn. startsAt/endsAt luôn lưu UTC; khi hiển thị thì đổi sang múi giờ người xem.
+model Appointment {
+  id               String            @id @default(uuid(7))
+  businessId       String
+  business         Business          @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  serviceId        String
+  service          Service           @relation(fields: [serviceId], references: [id], onDelete: Restrict)
+  customerName     String
+  customerEmail    String
+  customerTimezone String            @default("UTC")
+  startsAt         DateTime          @db.Timestamptz(3)
+  endsAt           DateTime          @db.Timestamptz(3)
+  status           AppointmentStatus @default(CONFIRMED)
+  // Token để khách (không có tài khoản) hủy / đổi lịch qua link trong email
+  manageToken      String            @unique @default(uuid(4))
+  reminderSentAt   DateTime?         @db.Timestamptz(3)
+  cancelledAt      DateTime?         @db.Timestamptz(3)
+  createdAt        DateTime          @default(now()) @db.Timestamptz(3)
+  updatedAt        DateTime          @updatedAt @db.Timestamptz(3)
+
+  @@index([businessId, startsAt])
+  @@index([status, startsAt])
+}
