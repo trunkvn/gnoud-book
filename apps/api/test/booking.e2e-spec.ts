@@ -1,9 +1,9 @@
-import { INestApplication, Logger } from '@nestjs/common';
+import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import { App } from 'supertest/types.js';
 import { PrismaService } from './../src/prisma/prisma.service.js';
 import { AvailabilityService } from './../src/public-booking/availability.service.js';
-import { createTestApp, fakeMail, registerOwner } from './helpers.js';
+import { createTestApp, fakeJobs, fakeMail, registerOwner } from './helpers.js';
 
 const EMAIL_DOMAIN = '@booking-e2e.test';
 const SLUG = 'tiem-dat-lich';
@@ -46,6 +46,7 @@ describe('Booking an appointment (e2e)', () => {
   beforeEach(async () => {
     await cleanup();
     fakeMail(app).sent = [];
+    fakeJobs(app).queued = [];
     const owner = await registerOwner(
       app,
       `owner${EMAIL_DOMAIN}`,
@@ -160,9 +161,23 @@ describe('Booking an appointment (e2e)', () => {
     });
   });
 
-  describe('confirmation email', () => {
+  describe('confirmation email (sent by a background job)', () => {
+    it('is queued as a job, not sent while the customer waits', async () => {
+      const res = await bookSlot(NINE).expect(201);
+
+      expect(fakeMail(app).sent).toHaveLength(0); // chưa gửi trong lúc xử lý request
+      expect(fakeJobs(app).queued).toEqual([
+        {
+          queue: 'booking-confirmation',
+          data: { appointmentId: res.body.id }, // chỉ có id, không chứa thông tin cá nhân
+          singletonKey: res.body.id,
+        },
+      ]);
+    });
+
     it('is sent to the customer with the time in their timezone and a manage link', async () => {
       const res = await bookSlot(NINE).expect(201);
+      await fakeJobs(app).drain(); // chạy job nền
 
       const { sent } = fakeMail(app);
       expect(sent).toHaveLength(1);
@@ -177,29 +192,33 @@ describe('Booking an appointment (e2e)', () => {
       await bookSlot(NINE, {
         customerName: '<img src=x onerror=alert(1)>',
       }).expect(201);
+      await fakeJobs(app).drain();
       expect(fakeMail(app).sent[0].html).not.toContain('<img');
     });
 
-    it('does not fail the booking when the email cannot be sent, but logs the problem', async () => {
-      const logError = vi
-        .spyOn(Logger.prototype, 'error')
-        .mockImplementation(() => {});
+    it('keeps the booking when the email fails; the failed job is retried by the queue', async () => {
+      await bookSlot(NINE).expect(201); // khách vẫn nhận 201
       fakeMail(app).failNext = true;
 
-      await bookSlot(NINE).expect(201);
-
+      // job lỗi: pg-boss sẽ thử lại, ở đây ta chỉ cần thấy lỗi được ném ra để hàng đợi bắt được
+      await expect(fakeJobs(app).drain()).rejects.toThrow('SMTP down');
       expect(await appointments()).toHaveLength(1);
-      expect(logError).toHaveBeenCalledWith(
-        expect.stringContaining('minh@example.com'),
-        expect.any(Error),
-      );
-      logError.mockRestore();
     });
 
-    it('is not sent when the booking is rejected', async () => {
+    it('is not queued when the booking is rejected', async () => {
       await bookSlot(NINE).expect(201);
-      fakeMail(app).sent = [];
+      fakeJobs(app).queued = [];
       await bookSlot(NINE).expect(409);
+      expect(fakeJobs(app).queued).toHaveLength(0);
+    });
+
+    it('is skipped if the appointment was cancelled before the job ran', async () => {
+      await bookSlot(NINE).expect(201);
+      await prisma.appointment.updateMany({
+        where: { businessId },
+        data: { status: 'CANCELLED' },
+      });
+      await fakeJobs(app).drain();
       expect(fakeMail(app).sent).toHaveLength(0);
     });
   });
@@ -258,7 +277,9 @@ describe('Booking an appointment (e2e)', () => {
       const statuses = responses.map((r) => r.status).sort((a, b) => a - b);
       expect(statuses).toEqual([201, 409, 409, 409, 409, 409, 409, 409]);
       expect(await appointments()).toHaveLength(1);
-      expect(fakeMail(app).sent).toHaveLength(1); // chỉ người thắng nhận email
+      expect(fakeJobs(app).queued).toHaveLength(1); // chỉ người thắng được xếp email
+      await fakeJobs(app).drain();
+      expect(fakeMail(app).sent).toHaveLength(1);
     });
   });
 

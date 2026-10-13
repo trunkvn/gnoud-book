@@ -8,6 +8,8 @@ import { ServicesModule } from './services/services.module.js';
 import { WorkingHoursModule } from './working-hours/working-hours.module.js';
 import { PublicBookingModule } from './public-booking/public-booking.module.js';
 import { MailModule } from './mail/mail.module.js';
+import { JobsModule } from './jobs/jobs.module.js';
+import { NotificationsModule } from './notifications/notifications.module.js';
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
@@ -17,6 +19,8 @@ import { MailModule } from './mail/mail.module.js';
     ServicesModule,
     WorkingHoursModule,
     MailModule,
+    JobsModule,
+    NotificationsModule,
     PublicBookingModule,
   ],
   controllers: [HealthController],

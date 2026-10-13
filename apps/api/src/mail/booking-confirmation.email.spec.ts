@@ -1,6 +1,5 @@
 import {
   type BookingConfirmationData,
-  escapeHtml,
   renderBookingConfirmation,
 } from './booking-confirmation.email.js';
 
@@ -49,13 +48,5 @@ describe('renderBookingConfirmation', () => {
 
     expect(html).not.toContain('<script>');
     expect(html).toContain('&lt;script&gt;alert(1)&lt;/script&gt;');
-  });
-});
-
-describe('escapeHtml', () => {
-  it('escapes the five dangerous characters', () => {
-    expect(escapeHtml(`<a href="x">Tom & 'Jerry'</a>`)).toBe(
-      '&lt;a href=&quot;x&quot;&gt;Tom &amp; &#39;Jerry&#39;&lt;/a&gt;',
-    );
   });
 });

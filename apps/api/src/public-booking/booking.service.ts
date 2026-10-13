@@ -1,8 +1,7 @@
 import { ConflictException, Injectable, Logger } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
 import { isNoOverlapViolation } from '../common/db-errors.js';
-import { renderBookingConfirmation } from '../mail/booking-confirmation.email.js';
-import { MailService } from '../mail/mail.service.js';
+import { JobsService } from '../jobs/jobs.service.js';
+import { QUEUES } from '../jobs/queues.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { AvailabilityService } from './availability.service.js';
 import type { CreateAppointmentDto } from './dto/create-appointment.dto.js';
@@ -16,8 +15,7 @@ export class BookingService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly availability: AvailabilityService,
-    private readonly mail: MailService,
-    private readonly config: ConfigService,
+    private readonly jobs: JobsService,
   ) {}
 
   async book(slug: string, dto: CreateAppointmentDto, now = new Date()) {
@@ -65,7 +63,7 @@ export class BookingService {
       throw error;
     }
 
-    await this.sendConfirmationEmail(appointment, business, service);
+    await this.queueConfirmationEmail(appointment.id);
 
     return {
       id: appointment.id,
@@ -93,36 +91,18 @@ export class BookingService {
     };
   }
 
-  // Lịch hẹn đã lưu xong rồi: gửi email lỗi thì chỉ ghi log, không làm hỏng việc đặt lịch.
-  // (Step 7 sẽ chuyển việc gửi email sang job nền có thử lại.)
-  private async sendConfirmationEmail(
-    appointment: {
-      customerName: string;
-      customerEmail: string;
-      customerTimezone: string;
-      startsAt: Date;
-      manageToken: string;
-    },
-    business: { name: string; timezone: string },
-    service: { name: string; durationMinutes: number },
-  ) {
+  // Lịch hẹn đã lưu xong rồi: việc gửi email giao cho job nền (có thử lại nếu lỗi),
+  // nên khách nhận phản hồi ngay và email hỏng không làm hỏng việc đặt lịch.
+  private async queueConfirmationEmail(appointmentId: string) {
     try {
-      const webUrl =
-        this.config.get<string>('WEB_URL') ?? 'http://localhost:3000';
-      const email = renderBookingConfirmation({
-        customerName: appointment.customerName,
-        customerTimezone: appointment.customerTimezone,
-        businessName: business.name,
-        businessTimezone: business.timezone,
-        serviceName: service.name,
-        durationMinutes: service.durationMinutes,
-        startsAt: appointment.startsAt,
-        manageUrl: `${webUrl}/manage/${appointment.manageToken}`,
-      });
-      await this.mail.send({ to: appointment.customerEmail, ...email });
+      await this.jobs.send(
+        QUEUES.bookingConfirmation,
+        { appointmentId },
+        { singletonKey: appointmentId },
+      );
     } catch (error) {
       this.logger.error(
-        `Không gửi được email xác nhận cho ${appointment.customerEmail}`,
+        `Không xếp được job email xác nhận cho lịch ${appointmentId}`,
         error,
       );
     }
