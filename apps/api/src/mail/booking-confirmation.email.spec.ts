@@ -36,6 +36,14 @@ describe('renderBookingConfirmation', () => {
     expect(text).toMatch(/Giờ tại cơ sở: 09:00.*\(Asia\/Ho_Chi_Minh\)/);
   });
 
+  it('omits the business-time line when the two names are the same place (Asia/Saigon = Asia/Ho_Chi_Minh)', () => {
+    const { text } = renderBookingConfirmation({
+      ...base,
+      customerTimezone: 'Asia/Saigon',
+    });
+    expect(text).not.toContain('Giờ tại cơ sở');
+  });
+
   it('omits the business-time line when both timezones are the same', () => {
     expect(renderBookingConfirmation(base).text).not.toContain('Giờ tại cơ sở');
   });
