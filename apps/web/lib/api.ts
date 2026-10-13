@@ -1,9 +1,19 @@
 import "server-only";
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 
 export const API_URL = process.env.API_URL ?? "http://localhost:4000";
 export const AUTH_COOKIE = "access_token";
+
+/**
+ * Khi server Next gọi API thay cho khách, API chỉ thấy IP của server Next. Chuyển tiếp IP thật của
+ * khách (Vercel đặt sẵn vào X-Forwarded-For) để giới hạn tốc độ tính theo từng khách chứ không
+ * dồn mọi người vào một hạn mức chung. Chạy local không có header này thì không gửi gì thêm.
+ */
+export async function clientIpHeaders(): Promise<Record<string, string>> {
+  const forwarded = (await headers()).get("x-forwarded-for");
+  return forwarded ? { "x-forwarded-for": forwarded } : {};
+}
 
 /**
  * Gọi API NestJS từ server của Next, kèm cookie đăng nhập của người đang xem trang.
@@ -15,7 +25,10 @@ export async function apiGet<T>(path: string): Promise<T> {
   if (!token) redirect("/login");
 
   const res = await fetch(`${API_URL}${path}`, {
-    headers: { cookie: `${AUTH_COOKIE}=${token}` },
+    headers: {
+      cookie: `${AUTH_COOKIE}=${token}`,
+      ...(await clientIpHeaders()),
+    },
     cache: "no-store",
   });
   if (res.status === 401) redirect("/login");

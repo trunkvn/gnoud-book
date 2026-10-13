@@ -2,7 +2,7 @@ import "server-only";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { cache } from "react";
-import { API_URL, AUTH_COOKIE } from "./api";
+import { API_URL, AUTH_COOKIE, clientIpHeaders } from "./api";
 
 export type CurrentUser = {
   id: string;
@@ -20,7 +20,10 @@ export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
   // API không phản hồi được thì coi như chưa đăng nhập, để trang chủ không sập theo API.
   try {
     const res = await fetch(`${API_URL}/auth/me`, {
-      headers: { cookie: `${AUTH_COOKIE}=${token}` },
+      headers: {
+        cookie: `${AUTH_COOKIE}=${token}`,
+        ...(await clientIpHeaders()),
+      },
       cache: "no-store",
     });
     if (!res.ok) return null;
