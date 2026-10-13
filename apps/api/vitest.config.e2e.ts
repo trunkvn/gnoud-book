@@ -12,6 +12,7 @@ export default defineConfig({
     env: {
       DATABASE_URL: DATABASE_URL_TEST,
       JWT_SECRET: 'e2e-secret',
+      RATE_LIMIT_DISABLED: 'true', // test chạy hàng trăm request từ một IP; rate-limit có test riêng
       JOBS_RETRY_DELAY_SECONDS: '1', // job lỗi được thử lại sau ~1 giây thay vì 30 giây
     },
     fileParallelism: false,

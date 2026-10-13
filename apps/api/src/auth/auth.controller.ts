@@ -8,6 +8,8 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { ApiCookieAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { Throttle } from '@nestjs/throttler';
+import { AUTH_LIMIT } from '../config/rate-limits.js';
 import { ConfigService } from '@nestjs/config';
 import type { CookieOptions, Response } from 'express';
 import { AUTH_COOKIE, AUTH_COOKIE_MAX_AGE_MS } from './auth.constants.js';
@@ -27,6 +29,7 @@ export class AuthController {
   ) {}
   @ApiOperation({ summary: 'Đăng ký chủ cơ sở (tạo luôn cơ sở đầu tiên)' })
   @Post('register')
+  @Throttle(AUTH_LIMIT)
   async register(
     @Body() dto: RegisterDto,
     @Res({ passthrough: true }) res: Response,
@@ -37,6 +40,7 @@ export class AuthController {
   }
   @ApiOperation({ summary: 'Đăng nhập, server đặt cookie access_token' })
   @Post('login')
+  @Throttle(AUTH_LIMIT)
   @HttpCode(200)
   async login(
     @Body() dto: LoginDto,

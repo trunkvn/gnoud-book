@@ -10,6 +10,8 @@ import {
   Query,
 } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import { Throttle } from '@nestjs/throttler';
+import { MANAGE_LIMIT } from '../config/rate-limits.js';
 import { AppointmentSlotsQueryDto } from './dto/appointment-slots-query.dto.js';
 import { RescheduleAppointmentDto } from './dto/reschedule-appointment.dto.js';
 import { ManageAppointmentService } from './manage-appointment.service.js';
@@ -45,6 +47,7 @@ export class ManageAppointmentController {
 
   @ApiOperation({ summary: 'Huỷ lịch hẹn (gọi lại khi đã huỷ vẫn trả 200)' })
   @Post('cancel')
+  @Throttle(MANAGE_LIMIT)
   @HttpCode(200)
   cancel(@Param('token', tokenPipe) token: string) {
     return this.manage.cancel(token);
@@ -54,6 +57,7 @@ export class ManageAppointmentController {
     summary: 'Đổi sang giờ khác (409 nếu giờ đó không còn trống)',
   })
   @Post('reschedule')
+  @Throttle(MANAGE_LIMIT)
   @HttpCode(200)
   reschedule(
     @Param('token', tokenPipe) token: string,

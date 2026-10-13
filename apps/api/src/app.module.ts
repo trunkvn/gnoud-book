@@ -1,5 +1,8 @@
 import { Module } from '@nestjs/common';
-import { ConfigModule } from '@nestjs/config';
+import { ConfigModule, ConfigService } from '@nestjs/config';
+import { APP_GUARD } from '@nestjs/core';
+import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
+import { DEFAULT_LIMIT } from './config/rate-limits.js';
 import { AppointmentsModule } from './appointments/appointments.module.js';
 import { AuthModule } from './auth/auth.module.js';
 import { BusinessesModule } from './businesses/businesses.module.js';
@@ -14,6 +17,14 @@ import { NotificationsModule } from './notifications/notifications.module.js';
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
+    ThrottlerModule.forRootAsync({
+      inject: [ConfigService],
+      useFactory: (config: ConfigService) => ({
+        throttlers: [{ name: 'default', ...DEFAULT_LIMIT }],
+        // Test e2e gửi hàng trăm request từ một IP nên tắt bằng biến môi trường
+        skipIf: () => config.get('RATE_LIMIT_DISABLED') === 'true',
+      }),
+    }),
     PrismaModule,
     AuthModule,
     BusinessesModule,
@@ -26,5 +37,6 @@ import { NotificationsModule } from './notifications/notifications.module.js';
     AppointmentsModule,
   ],
   controllers: [HealthController],
+  providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })
 export class AppModule {}

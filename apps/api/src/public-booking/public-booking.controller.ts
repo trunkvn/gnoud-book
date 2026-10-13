@@ -1,5 +1,7 @@
 import { Body, Controller, Get, Param, Post, Query } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import { Throttle } from '@nestjs/throttler';
+import { BOOKING_LIMIT } from '../config/rate-limits.js';
 import { AvailabilityService } from './availability.service.js';
 import { BookingService } from './booking.service.js';
 import { CreateAppointmentDto } from './dto/create-appointment.dto.js';
@@ -33,6 +35,7 @@ export class PublicBookingController {
       'Đặt lịch (409 nếu khung giờ không còn trống), gửi email xác nhận cho khách',
   })
   @Post('appointments')
+  @Throttle(BOOKING_LIMIT)
   book(@Param('slug') slug: string, @Body() dto: CreateAppointmentDto) {
     return this.booking.book(slug, dto);
   }
