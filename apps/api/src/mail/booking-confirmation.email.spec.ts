@@ -40,6 +40,16 @@ describe('renderBookingConfirmation', () => {
     expect(renderBookingConfirmation(base).text).not.toContain('Giờ tại cơ sở');
   });
 
+  it('says the appointment was moved when it is a reschedule', () => {
+    const { subject, text } = renderBookingConfirmation(base, {
+      rescheduled: true,
+    });
+
+    expect(subject).toBe('Đã đổi lịch hẹn: Cắt tóc tại Tiệm Tóc Đẹp');
+    expect(text).toContain('đã được đổi sang thời gian mới');
+    expect(text).toContain('http://localhost:3000/manage/abc-123');
+  });
+
   it('escapes HTML in values supplied by strangers', () => {
     const { html } = renderBookingConfirmation({
       ...base,

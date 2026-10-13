@@ -5,7 +5,7 @@ import { QUEUES } from '../jobs/queues.js';
 import { NotificationsService } from './notifications.service.js';
 import { DEFAULT_REMINDER_SWEEP_CRON } from './reminder-rules.js';
 
-type AppointmentJob = { appointmentId: string };
+type AppointmentJob = { appointmentId: string; rescheduled?: boolean };
 
 /** Nối các hàm trong NotificationsService vào hàng đợi: ai xử lý job nào, và lịch quét định kỳ. */
 @Injectable()
@@ -19,8 +19,17 @@ export class NotificationsWorker implements OnModuleInit {
   async onModuleInit() {
     await this.jobs.work<AppointmentJob>(
       QUEUES.bookingConfirmation,
+      async ({ appointmentId, rescheduled }) => {
+        await this.notifications.sendBookingConfirmation(appointmentId, {
+          rescheduled,
+        });
+      },
+    );
+
+    await this.jobs.work<AppointmentJob>(
+      QUEUES.appointmentCancellation,
       async ({ appointmentId }) => {
-        await this.notifications.sendBookingConfirmation(appointmentId);
+        await this.notifications.sendCancellation(appointmentId);
       },
     );
 

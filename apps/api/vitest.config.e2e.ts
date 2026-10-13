@@ -15,5 +15,7 @@ export default defineConfig({
       JOBS_RETRY_DELAY_SECONDS: '1', // job lỗi được thử lại sau ~1 giây thay vì 30 giây
     },
     fileParallelism: false,
+    // Test e2e chạm database thật nên nhiều khi chậm hơn 5 giây mặc định khi máy đang bận.
+    testTimeout: 20_000,
   },
 });

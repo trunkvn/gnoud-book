@@ -65,6 +65,8 @@ export class AvailabilityService {
     rangeStart: Date,
     rangeEnd: Date,
     now: Date,
+    /** Lịch hẹn đang được đổi giờ: không để nó tự chặn chính mình */
+    ignoreAppointmentId?: string,
   ) {
     const [workingHours, busy] = await Promise.all([
       this.prisma.workingHours.findMany({ where: { businessId: business.id } }),
@@ -74,6 +76,7 @@ export class AvailabilityService {
         where: {
           businessId: business.id,
           status: 'CONFIRMED',
+          ...(ignoreAppointmentId && { id: { not: ignoreAppointmentId } }),
           startsAt: {
             lt: new Date(rangeEnd.getTime() + service.durationMinutes * 60_000),
           },
@@ -99,7 +102,20 @@ export class AvailabilityService {
       slug,
       query.serviceId,
     );
+    return this.slotsFor(business, service, query, now);
+  }
 
+  /**
+   * Slot trống của một dịch vụ, gom theo ngày của người xem. Dùng cho cả trang đặt lịch lẫn
+   * trang đổi lịch (khi đó truyền `ignoreAppointmentId` để lịch cũ không chặn giờ liền kề của nó).
+   */
+  async slotsFor(
+    business: Business,
+    service: Service,
+    query: { from?: string; to?: string; timezone?: string },
+    now = new Date(),
+    ignoreAppointmentId?: string,
+  ) {
     // Ngày from/to được hiểu theo múi giờ của NGƯỜI XEM
     const viewerTimezone = query.timezone ?? business.timezone;
     const firstDay = query.from
@@ -130,6 +146,7 @@ export class AvailabilityService {
       rangeStart,
       rangeEnd,
       now,
+      ignoreAppointmentId,
     );
 
     // Gom theo NGÀY CỦA NGƯỜI XEM (một slot 22:00 giờ VN có thể là ngày hôm sau ở Tokyo)

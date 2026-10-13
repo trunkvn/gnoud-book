@@ -1,8 +1,9 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JobsService } from '../jobs/jobs.service.js';
 import { QUEUES } from '../jobs/queues.js';
 import { renderAppointmentReminder } from '../mail/appointment-reminder.email.js';
+import { renderAppointmentCancellation } from '../mail/appointment-cancellation.email.js';
 import { renderBookingConfirmation } from '../mail/booking-confirmation.email.js';
 import { MailService } from '../mail/mail.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
@@ -14,6 +15,8 @@ import { REMINDER_LEAD_HOURS, REMINDER_SWEEP_BATCH } from './reminder-rules.js';
  */
 @Injectable()
 export class NotificationsService {
+  private readonly logger = new Logger(NotificationsService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly mail: MailService,
@@ -21,14 +24,73 @@ export class NotificationsService {
     private readonly config: ConfigService,
   ) {}
 
-  /** Email xác nhận. Trả về false nếu bỏ qua (lịch không còn tồn tại hoặc đã huỷ). */
-  async sendBookingConfirmation(appointmentId: string): Promise<boolean> {
+  /**
+   * Xếp job gửi email xác nhận (hoặc báo "đã đổi lịch"). Việc gửi chạy nền, nên nơi gọi
+   * (đặt lịch, đổi lịch) trả lời khách ngay. Xếp job lỗi chỉ ghi log: không được làm hỏng
+   * thay đổi đã lưu vào database.
+   */
+  queueBookingConfirmation(
+    appointmentId: string,
+    options: { rescheduled?: boolean } = {},
+  ) {
+    return this.enqueue(
+      QUEUES.bookingConfirmation,
+      appointmentId,
+      options.rescheduled ? { rescheduled: true } : {},
+    );
+  }
+
+  /** Xếp job gửi email báo đã huỷ lịch. */
+  queueCancellation(appointmentId: string) {
+    return this.enqueue(QUEUES.appointmentCancellation, appointmentId, {});
+  }
+
+  private async enqueue(
+    queue: (typeof QUEUES)[keyof typeof QUEUES],
+    appointmentId: string,
+    extra: { rescheduled?: boolean },
+  ) {
+    try {
+      await this.jobs.send(
+        queue,
+        { appointmentId, ...extra },
+        { singletonKey: appointmentId },
+      );
+    } catch (error) {
+      this.logger.error(
+        `Không xếp được job ${queue} cho lịch ${appointmentId}`,
+        error,
+      );
+    }
+  }
+
+  /**
+   * Email xác nhận (hoặc báo "đã đổi lịch" khi `rescheduled`). Trả về false nếu bỏ qua
+   * (lịch không còn tồn tại hoặc đã huỷ). Luôn đọc lại trạng thái mới nhất, nên nếu khách
+   * đổi lịch trước khi job chạy thì email nói đúng giờ hiện tại.
+   */
+  async sendBookingConfirmation(
+    appointmentId: string,
+    options: { rescheduled?: boolean } = {},
+  ): Promise<boolean> {
     const appointment = await this.findWithDetails(appointmentId);
     if (!appointment || appointment.status !== 'CONFIRMED') return false;
 
     await this.mail.send({
       to: appointment.customerEmail,
-      ...renderBookingConfirmation(this.toEmailData(appointment)),
+      ...renderBookingConfirmation(this.toEmailData(appointment), options),
+    });
+    return true;
+  }
+
+  /** Email báo đã huỷ. Ngược với các email khác: chỉ gửi khi lịch ĐÃ bị huỷ. */
+  async sendCancellation(appointmentId: string): Promise<boolean> {
+    const appointment = await this.findWithDetails(appointmentId);
+    if (!appointment || appointment.status !== 'CANCELLED') return false;
+
+    await this.mail.send({
+      to: appointment.customerEmail,
+      ...renderAppointmentCancellation(this.toEmailData(appointment)),
     });
     return true;
   }

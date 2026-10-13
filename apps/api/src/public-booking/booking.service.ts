@@ -1,21 +1,17 @@
-import { ConflictException, Injectable, Logger } from '@nestjs/common';
-import { isNoOverlapViolation } from '../common/db-errors.js';
-import { JobsService } from '../jobs/jobs.service.js';
-import { QUEUES } from '../jobs/queues.js';
+import { ConflictException, Injectable } from '@nestjs/common';
+import { isSlotContention } from '../common/db-errors.js';
+import { NotificationsService } from '../notifications/notifications.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { AvailabilityService } from './availability.service.js';
 import type { CreateAppointmentDto } from './dto/create-appointment.dto.js';
-
-const SLOT_TAKEN = 'Khung giờ này không còn trống, vui lòng chọn giờ khác';
+import { SLOT_TAKEN } from './messages.js';
 
 @Injectable()
 export class BookingService {
-  private readonly logger = new Logger(BookingService.name);
-
   constructor(
     private readonly prisma: PrismaService,
     private readonly availability: AvailabilityService,
-    private readonly jobs: JobsService,
+    private readonly notifications: NotificationsService,
   ) {}
 
   async book(slug: string, dto: CreateAppointmentDto, now = new Date()) {
@@ -57,13 +53,15 @@ export class BookingService {
         },
       });
     } catch (error) {
-      if (isNoOverlapViolation(error)) {
+      if (isSlotContention(error)) {
         throw new ConflictException(SLOT_TAKEN);
       }
       throw error;
     }
 
-    await this.queueConfirmationEmail(appointment.id);
+    // Việc gửi email giao cho job nền (có thử lại nếu lỗi): khách nhận phản hồi ngay,
+    // và email hỏng không làm hỏng việc đặt lịch.
+    await this.notifications.queueBookingConfirmation(appointment.id);
 
     return {
       id: appointment.id,
@@ -89,22 +87,5 @@ export class BookingService {
         timezone: business.timezone,
       },
     };
-  }
-
-  // Lịch hẹn đã lưu xong rồi: việc gửi email giao cho job nền (có thử lại nếu lỗi),
-  // nên khách nhận phản hồi ngay và email hỏng không làm hỏng việc đặt lịch.
-  private async queueConfirmationEmail(appointmentId: string) {
-    try {
-      await this.jobs.send(
-        QUEUES.bookingConfirmation,
-        { appointmentId },
-        { singletonKey: appointmentId },
-      );
-    } catch (error) {
-      this.logger.error(
-        `Không xếp được job email xác nhận cho lịch ${appointmentId}`,
-        error,
-      );
-    }
   }
 }

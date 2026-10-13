@@ -3,6 +3,7 @@ import type { Queue } from 'pg-boss';
 export const QUEUES = {
   bookingConfirmation: 'booking-confirmation',
   appointmentReminder: 'appointment-reminder',
+  appointmentCancellation: 'appointment-cancellation',
   reminderSweep: 'reminder-sweep',
 } as const;
 
@@ -25,6 +26,7 @@ export function queueDefinitions(
   return {
     [QUEUES.bookingConfirmation]: email,
     [QUEUES.appointmentReminder]: email,
+    [QUEUES.appointmentCancellation]: email,
     // Job quét định kỳ: không cần thử lại, vì lần quét kế tiếp sẽ nhặt lại những gì còn sót.
     [QUEUES.reminderSweep]: { retryLimit: 0, expireInSeconds: 300 },
   };

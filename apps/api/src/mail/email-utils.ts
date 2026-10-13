@@ -10,9 +10,16 @@ export type AppointmentEmailData = {
   serviceName: string;
   durationMinutes: number;
   startsAt: Date;
+};
+
+/** Email mà khách còn có thể huỷ/đổi lịch: có kèm link quản lý */
+export type ManageableAppointmentEmailData = AppointmentEmailData & {
   /** Link để khách huỷ hoặc đổi lịch */
   manageUrl: string;
 };
+
+/** Liên kết ở cuối email (nếu có) */
+export type EmailFooterLink = { label: string; url: string };
 
 export function formatTime(date: Date, timezone: string): string {
   const local = DateTime.fromJSDate(date, { zone: timezone }).setLocale('vi');
@@ -36,6 +43,7 @@ export function escapeHtml(value: string): string {
 export function renderAppointmentEmail(
   data: AppointmentEmailData,
   intro: { text: string; html: string },
+  footerLink: EmailFooterLink | null,
 ) {
   const rows: [string, string][] = [
     ['Dịch vụ', `${data.serviceName} (${data.durationMinutes} phút)`],
@@ -56,8 +64,7 @@ export function renderAppointmentEmail(
     intro.text,
     '',
     ...rows.map(([label, value]) => `${label}: ${value}`),
-    '',
-    `Huỷ hoặc đổi lịch: ${data.manageUrl}`,
+    ...(footerLink ? ['', `${footerLink.label}: ${footerLink.url}`] : []),
   ].join('\n');
 
   const html = `<!doctype html>
@@ -73,7 +80,7 @@ ${rows
   )
   .join('\n')}
     </table>
-    <p><a href="${escapeHtml(data.manageUrl)}">Huỷ hoặc đổi lịch</a></p>
+${footerLink ? `    <p><a href="${escapeHtml(footerLink.url)}">${escapeHtml(footerLink.label)}</a></p>\n` : ''}
   </body>
 </html>`;
 

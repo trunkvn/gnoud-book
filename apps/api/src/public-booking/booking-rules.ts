@@ -8,3 +8,6 @@ export const MIN_NOTICE_MINUTES = 60;
 
 /** Một lần tra cứu slot được xem tối đa bao nhiêu ngày */
 export const MAX_RANGE_DAYS = 31;
+
+/** Khách chỉ được huỷ/đổi lịch cho tới trước giờ hẹn bao nhiêu giờ */
+export const CHANGE_CUTOFF_HOURS = 2;
