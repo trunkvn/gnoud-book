@@ -129,6 +129,8 @@ pnpm --filter @gnoud-book/api mail:test ban@gmail.com
 
 ## Chạy ở production
 
+Hướng dẫn triển khai từng bước (Vercel + Railway) nằm ở [`docs/DEPLOY.md`](docs/DEPLOY.md).
+
 API từ chối khởi động khi `NODE_ENV=production` mà cấu hình sẽ chạy sai một cách âm thầm. Các biến cần đặt:
 
 | Biến | Yêu cầu |
@@ -181,5 +183,5 @@ Phong cách "biên tập": giấy xanh nhạt có hạt, chữ tiêu đề serif
 - Chủ cơ sở huỷ được lịch nhưng chưa tự đổi giờ giúp khách.
 - Chưa có thanh toán, chưa đa ngôn ngữ.
 - Rate limit đếm trong bộ nhớ của từng tiến trình API: chạy nhiều instance thì cần kho chung (vd Redis).
-- Các trang Next render phía server (dashboard, trang đặt lịch) gọi API từ server Next mà chưa chuyển tiếp IP của khách bằng `X-Forwarded-For`, nên khi triển khai sau proxy chúng dùng chung một hạn mức. Cần chuyển tiếp header này (và đặt đúng `TRUST_PROXY`) khi deploy.
+- Giới hạn tốc độ dựa vào `X-Forwarded-For` và `TRUST_PROXY`; con số đúng phụ thuộc vào chuỗi proxy thật nên cần thử một lần sau khi deploy (xem `docs/DEPLOY.md`).
 - Kiểm thử giao diện hiện làm thủ công bằng Playwright, chưa nằm trong repo.
