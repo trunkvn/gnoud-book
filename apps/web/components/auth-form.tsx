@@ -3,11 +3,10 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Field, Input } from "@/components/ui/field";
 
 type Mode = "login" | "register";
-
-const inputClass =
-  "w-full rounded-md border border-zinc-300 bg-transparent px-3 py-2 outline-none focus:border-zinc-500 dark:border-zinc-700";
 
 export function AuthForm({ mode }: { mode: Mode }) {
   const router = useRouter();
@@ -49,69 +48,84 @@ export function AuthForm({ mode }: { mode: Mode }) {
   const isRegister = mode === "register";
 
   return (
-    <form
-      onSubmit={handleSubmit}
-      className="flex w-full max-w-sm flex-col gap-4"
-    >
-      <h1 className="text-2xl font-semibold">
-        {isRegister ? "Tạo tài khoản chủ cơ sở" : "Đăng nhập"}
-      </h1>
+    <form onSubmit={handleSubmit} className="flex flex-col gap-5">
+      <div>
+        <p className="eyebrow">{isRegister ? "Bắt đầu" : "Chào mừng trở lại"}</p>
+        <h1 className="font-display mt-4 text-5xl leading-[1.02] font-black tracking-tight">
+          {isRegister ? "Tạo cơ sở của bạn" : "Đăng nhập"}
+        </h1>
+        <p className="mt-3 text-ink-soft">
+          {isRegister
+            ? "Mất chưa đầy một phút. Bạn có thể chỉnh mọi thứ sau."
+            : "Vào trang lịch để xem và quản lý các cuộc hẹn."}
+        </p>
+      </div>
 
       {isRegister && (
-        <>
-          <input
-            name="name"
-            placeholder="Tên của bạn"
-            required
-            className={inputClass}
-          />
-          <input
-            name="businessName"
-            placeholder="Tên cơ sở"
-            required
-            className={inputClass}
-          />
-        </>
+        <div className="grid gap-5 sm:grid-cols-2">
+          <Field label="Tên của bạn">
+            <Input name="name" autoComplete="name" required placeholder="Nguyễn Văn A" />
+          </Field>
+          <Field label="Tên cơ sở">
+            <Input name="businessName" required placeholder="Salon Hà Nội" />
+          </Field>
+        </div>
       )}
-      <input
-        name="email"
-        type="email"
-        placeholder="Email"
-        required
-        className={inputClass}
-      />
-      <input
-        name="password"
-        type="password"
-        placeholder="Mật khẩu (tối thiểu 8 ký tự)"
-        required
-        minLength={isRegister ? 8 : undefined}
-        className={inputClass}
-      />
 
-      {error && <p className="text-sm text-red-600">{error}</p>}
+      <Field label="Email">
+        <Input
+          name="email"
+          type="email"
+          autoComplete="email"
+          required
+          placeholder="ban@vidu.com"
+        />
+      </Field>
 
-      <button
-        type="submit"
-        disabled={pending}
-        className="rounded-md bg-zinc-900 px-3 py-2 text-white disabled:opacity-50 dark:bg-zinc-100 dark:text-zinc-900"
+      <Field
+        label="Mật khẩu"
+        hint={isRegister ? "Tối thiểu 8 ký tự" : undefined}
       >
-        {pending ? "Đang xử lý…" : isRegister ? "Đăng ký" : "Đăng nhập"}
-      </button>
+        <Input
+          name="password"
+          type="password"
+          autoComplete={isRegister ? "new-password" : "current-password"}
+          required
+          minLength={isRegister ? 8 : undefined}
+          placeholder="••••••••"
+        />
+      </Field>
 
-      <p className="text-sm text-zinc-600 dark:text-zinc-400">
+      {error && (
+        <p
+          role="alert"
+          className="rounded-xl border-[1.5px] border-coral/50 bg-coral-tint px-4 py-3 text-sm font-medium text-coral"
+        >
+          {error}
+        </p>
+      )}
+
+      <Button type="submit" size="lg" disabled={pending} className="mt-1 w-full">
+        {pending
+          ? "Đang xử lý…"
+          : isRegister
+            ? "Tạo tài khoản"
+            : "Đăng nhập"}
+      </Button>
+
+      <p className="text-center text-sm text-ink-soft">
         {isRegister ? (
           <>
             Đã có tài khoản?{" "}
-            <Link href="/login" className="underline">
+            <Link href="/login" className="font-bold text-jade underline underline-offset-4">
               Đăng nhập
             </Link>
           </>
         ) : (
           <>
             Chưa có tài khoản?{" "}
-            <Link href="/register" className="underline">
-              Đăng ký
+            <Link href="/register" className="font-bold text-jade underline underline-offset-4">
+              Đăng ký miễn phí
             </Link>
           </>
         )}

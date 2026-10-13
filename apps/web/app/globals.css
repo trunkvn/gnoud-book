@@ -1,26 +1,212 @@
 @import "tailwindcss";
 
+/*
+ * Bảng màu "ngọc bích & vàng cúc": giấy xanh nhạt, mực xanh đen, ngọc bích làm màu chính,
+ * vàng cúc làm điểm nhấn (như mặt trời trên mặt đồng hồ), san hô cho cảnh báo/huỷ.
+ * Mọi màu là biến CSS để chế độ tối chỉ cần đổi giá trị ở một chỗ.
+ */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+  --paper: #f1f4ea;
+  --paper-raised: #fafcf5;
+  --paper-sunk: #e2e8d9;
+  --ink: #0d1f1b;
+  --ink-soft: #3f5249;
+  --line: rgb(13 31 27 / 0.16);
+  --hard: #0d1f1b; /* màu bóng "in offset" cứng */
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --jade: #0b5d54;
+  --jade-strong: #07403a;
+  --jade-tint: #cde6db;
+  --on-jade: #f6fbf1;
+
+  /* Khối luôn nền ngọc bích ĐẬM ở cả hai chế độ (thanh bên, bảng đăng nhập...) */
+  --deep: #07403a;
+  --on-deep: #f6fbf1;
+
+  --marigold: #f2a93b;
+  --marigold-soft: #fbe2b0;
+
+  --coral: #c4452d;
+  --coral-tint: #f5d8cf;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --paper: #0a1714;
+    --paper-raised: #11241f;
+    --paper-sunk: #060f0d;
+    --ink: #e9f1e4;
+    --ink-soft: #9ab1a5;
+    --line: rgb(233 241 228 / 0.18);
+    --hard: #000;
+
+    --jade: #4cc4b1;
+    --jade-strong: #86dccd;
+    --jade-tint: #123c36;
+    --on-jade: #04211d;
+
+    --deep: #0c2f2a;
+    --on-deep: #f1f7ec;
+
+    --marigold: #f5b650;
+    --marigold-soft: #4a3813;
+
+    --coral: #ff8168;
+    --coral-tint: #45211a;
   }
 }
 
+@theme inline {
+  --color-paper: var(--paper);
+  --color-paper-raised: var(--paper-raised);
+  --color-paper-sunk: var(--paper-sunk);
+  --color-ink: var(--ink);
+  --color-ink-soft: var(--ink-soft);
+  --color-line: var(--line);
+  --color-hard: var(--hard);
+  --color-jade: var(--jade);
+  --color-jade-strong: var(--jade-strong);
+  --color-jade-tint: var(--jade-tint);
+  --color-on-jade: var(--on-jade);
+  --color-deep: var(--deep);
+  --color-on-deep: var(--on-deep);
+  --color-marigold: var(--marigold);
+  --color-marigold-soft: var(--marigold-soft);
+  --color-coral: var(--coral);
+  --color-coral-tint: var(--coral-tint);
+
+  --font-display: var(--font-display), ui-serif, Georgia, serif;
+  --font-sans: var(--font-body), ui-sans-serif, system-ui, sans-serif;
+}
+
+html {
+  background: var(--paper);
+  scroll-behavior: smooth;
+}
+
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-body), ui-sans-serif, system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  /* Số thẳng hàng trong bảng giờ, giá tiền... */
+  font-variant-numeric: tabular-nums;
+}
+
+/* Hạt giấy: lớp nhiễu rất nhạt phủ toàn trang để nền không bị "phẳng như màn hình" */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0.5;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.05  0 0 0 0 0.12  0 0 0 0 0.1  0 0 0 0.09 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+}
+
+@media (prefers-color-scheme: dark) {
+  body::before {
+    opacity: 0.35;
+    mix-blend-mode: screen;
+  }
+}
+
+body > * {
+  position: relative;
+  z-index: 1;
+}
+
+::selection {
+  background: var(--marigold);
+  color: #0d1f1b;
+}
+
+:focus-visible {
+  outline: 2px solid var(--jade);
+  outline-offset: 3px;
+}
+
+/* Chữ tiêu đề: Fraunces ở dạng "wonky" mềm, có cá tính hơn serif thông thường */
+.font-display {
+  font-variation-settings: "SOFT" 100, "WONK" 1;
+  font-optical-sizing: auto;
+}
+
+/* Nhãn nhỏ viết hoa, giãn chữ, có gạch đầu dòng */
+.eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.75rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--jade);
+}
+.eyebrow::before {
+  content: "";
+  width: 2.25rem;
+  height: 1.5px;
+  background: currentColor;
+}
+
+/* Tấm vé hẹn: hai nửa vòng khuyết ở hai bên như vé xé từ cuốn sổ */
+.ticket {
+  --r: 12px;
+  --y: 66%;
+  -webkit-mask:
+    radial-gradient(circle var(--r) at 0 var(--y), #0000 calc(var(--r) - 0.5px), #000 var(--r)) left / 51% 100% no-repeat,
+    radial-gradient(circle var(--r) at 100% var(--y), #0000 calc(var(--r) - 0.5px), #000 var(--r)) right / 51% 100% no-repeat;
+  mask:
+    radial-gradient(circle var(--r) at 0 var(--y), #0000 calc(var(--r) - 0.5px), #000 var(--r)) left / 51% 100% no-repeat,
+    radial-gradient(circle var(--r) at 100% var(--y), #0000 calc(var(--r) - 0.5px), #000 var(--r)) right / 51% 100% no-repeat;
+}
+
+/* Dải chữ chạy ngang */
+@keyframes marquee {
+  to { transform: translateX(-50%); }
+}
+.marquee-track {
+  display: flex;
+  width: max-content;
+  animation: marquee 38s linear infinite;
+}
+.marquee:hover .marquee-track {
+  animation-play-state: paused;
+}
+
+/* Mặt đồng hồ quay rất chậm */
+@keyframes spin-slow {
+  to { transform: rotate(360deg); }
+}
+.spin-slow {
+  transform-origin: 200px 200px;
+  animation: spin-slow 160s linear infinite;
+}
+.spin-slow-reverse {
+  transform-origin: 200px 200px;
+  animation: spin-slow 240s linear infinite reverse;
+}
+
+/* Hiện dần khi vào trang */
+@keyframes rise {
+  from { opacity: 0; transform: translateY(14px); }
+  to { opacity: 1; transform: none; }
+}
+.rise {
+  animation: rise 0.7s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  animation-delay: calc(var(--i, 0) * 90ms);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .marquee-track, .spin-slow, .spin-slow-reverse, .rise {
+    animation: none;
+  }
+  html { scroll-behavior: auto; }
+}
+
+/* Thanh cuộn gọn trong các khung cuộn của lịch */
+.scroll-thin {
+  scrollbar-width: thin;
+  scrollbar-color: var(--line) transparent;
 }
