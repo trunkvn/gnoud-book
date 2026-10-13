@@ -1,5 +1,13 @@
 import { Body, Controller, Get, Param, Post, Query } from '@nestjs/common';
-import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import {
+  ApiBadRequestResponse,
+  ApiConflictResponse,
+  ApiCreatedResponse,
+  ApiNotFoundResponse,
+  ApiOperation,
+  ApiTags,
+  ApiTooManyRequestsResponse,
+} from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 import { BOOKING_LIMIT } from '../config/rate-limits.js';
 import { AvailabilityService } from './availability.service.js';
@@ -33,6 +41,22 @@ export class PublicBookingController {
   @ApiOperation({
     summary:
       'Đặt lịch (409 nếu khung giờ không còn trống), gửi email xác nhận cho khách',
+  })
+  @ApiCreatedResponse({
+    description:
+      'Đã đặt. Trả về id, status, startsAt, endsAt và manageToken (dùng cho /public/appointments/{token}). Email xác nhận được gửi qua job nền.',
+  })
+  @ApiBadRequestResponse({
+    description:
+      'Dữ liệu sai (email không hợp lệ, startsAt thiếu múi giờ, field lạ...)',
+  })
+  @ApiNotFoundResponse({ description: 'Không có cơ sở hoặc dịch vụ này' })
+  @ApiConflictResponse({
+    description:
+      'Khung giờ không còn trống (có người vừa đặt) hoặc không hợp lệ với giờ làm việc',
+  })
+  @ApiTooManyRequestsResponse({
+    description: 'Quá 10 lần đặt trong 1 phút từ cùng một IP',
   })
   @Post('appointments')
   @Throttle(BOOKING_LIMIT)
