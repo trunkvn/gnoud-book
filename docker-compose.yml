@@ -1,0 +1,33 @@
+# Môi trường phát triển: PostgreSQL + Mailpit (hộp thư giả, bắt mọi email gửi ra, không gửi đi đâu thật).
+#   docker compose up -d
+# Rồi dùng trong apps/api/.env:
+#   DATABASE_URL="postgresql://gnoud:gnoud@localhost:5432/gnoud_book"
+#   SMTP_HOST=localhost  SMTP_PORT=1025
+# Hộp thư giả xem ở http://localhost:8025
+services:
+  postgres:
+    image: postgres:17
+    environment:
+      POSTGRES_USER: gnoud
+      POSTGRES_PASSWORD: gnoud
+      POSTGRES_DB: gnoud_book
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      # tạo thêm database riêng cho e2e test (chỉ chạy lần đầu, khi volume còn trống)
+      - ./docker/initdb:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U gnoud -d gnoud_book"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  mailpit:
+    image: axllent/mailpit:latest
+    ports:
+      - "1025:1025" # SMTP
+      - "8025:8025" # giao diện web
+
+volumes:
+  pgdata:
