@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
   addDays,
+  dateParts,
+  sameLocalTime,
   errorMessage,
   formatDateTime,
   formatDayLabel,
@@ -82,5 +84,40 @@ describe('errorMessage', () => {
     expect(errorMessage(null, 'lỗi')).toBe('lỗi');
     expect(errorMessage({}, 'lỗi')).toBe('lỗi');
     expect(errorMessage('text', 'lỗi')).toBe('lỗi');
+  });
+});
+
+describe('dateParts', () => {
+  it('splits an instant into calendar-sheet parts in the given timezone', () => {
+    expect(dateParts(INSTANT, 'Asia/Ho_Chi_Minh')).toEqual({
+      weekday: 'Thứ Hai',
+      day: '07',
+      month: 'Tháng 1',
+      time: '09:00',
+    });
+  });
+
+  it('moves to the previous day when the timezone is behind', () => {
+    expect(dateParts(INSTANT, 'America/Los_Angeles')).toEqual({
+      weekday: 'Chủ Nhật',
+      day: '06',
+      month: 'Tháng 1',
+      time: '18:00',
+    });
+  });
+});
+
+describe('sameLocalTime', () => {
+  it('treats two names for the same place as the same time', () => {
+    expect(sameLocalTime(INSTANT, 'Asia/Saigon', 'Asia/Ho_Chi_Minh')).toBe(true);
+  });
+
+  it('treats different offsets as different', () => {
+    expect(sameLocalTime(INSTANT, 'Asia/Tokyo', 'Asia/Ho_Chi_Minh')).toBe(false);
+  });
+
+  it('can differ by date even when the clock reading matches', () => {
+    // 02:00Z: 09:00 ngày 07 ở VN, nhưng 18:00 ngày 06 ở LA
+    expect(sameLocalTime(INSTANT, 'America/Los_Angeles', 'Asia/Ho_Chi_Minh')).toBe(false);
   });
 });

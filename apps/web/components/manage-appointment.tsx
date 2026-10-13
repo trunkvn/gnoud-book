@@ -1,12 +1,17 @@
 'use client';
 
 import { useState } from 'react';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import {
+  dateParts,
   errorMessage,
   formatDateTime,
   formatPrice,
+  sameLocalTime,
   type ManagedAppointment,
 } from '@/lib/appointment';
+import { cn } from '@/lib/cn';
 import { useViewerTimezone } from '@/lib/use-viewer-timezone';
 import { SlotPicker } from './slot-picker';
 
@@ -32,10 +37,12 @@ export function ManageAppointment({
   const businessTimezone = appointment.business.timezone;
 
   // Trước khi biết múi giờ của trình duyệt thì chưa in giờ (tránh server và trình duyệt in khác nhau)
-  const when = viewerTimezone
-    ? formatDateTime(appointment.startsAt, viewerTimezone)
-    : '…';
-  const differentZone = viewerTimezone && viewerTimezone !== businessTimezone;
+  const parts = viewerTimezone
+    ? dateParts(appointment.startsAt, viewerTimezone)
+    : null;
+  const differentZone =
+    viewerTimezone !== null &&
+    !sameLocalTime(appointment.startsAt, viewerTimezone, businessTimezone);
 
   async function cancelAppointment() {
     setBusy(true);
@@ -67,70 +74,103 @@ export function ManageAppointment({
   }
 
   return (
-    <div className="flex flex-col gap-6">
-      <header className="flex flex-col gap-2">
-        <h1 className="text-2xl font-semibold">Lịch hẹn của bạn</h1>
-        <p className="text-zinc-600 dark:text-zinc-400">
-          Xin chào {appointment.customer.name}.
+    <div className="flex flex-col gap-8">
+      <header>
+        <p className="eyebrow">Quản lý lịch hẹn</p>
+        <h1 className="font-display mt-4 text-5xl leading-[1.02] font-black tracking-tight sm:text-6xl">
+          Xin chào, {appointment.customer.name}.
+        </h1>
+        <p className="mt-3 text-ink-soft">
+          {active
+            ? 'Đây là lịch hẹn của bạn. Bạn có thể đổi giờ hoặc huỷ ở bên dưới.'
+            : cancelled
+              ? 'Lịch hẹn này đã được huỷ.'
+              : 'Lịch hẹn này đã hoàn thành.'}
         </p>
       </header>
 
       {notice && (
         <p
           role={notice.kind === 'error' ? 'alert' : 'status'}
-          className={`rounded-md border p-3 text-sm ${
+          className={cn(
+            'rounded-2xl border-[1.5px] px-5 py-4 text-sm font-semibold',
             notice.kind === 'error'
-              ? 'border-red-300 bg-red-50 text-red-800 dark:border-red-900 dark:bg-red-950 dark:text-red-200'
-              : 'border-green-300 bg-green-50 text-green-800 dark:border-green-900 dark:bg-green-950 dark:text-green-200'
-          }`}
+              ? 'border-coral/50 bg-coral-tint text-coral'
+              : 'border-jade/50 bg-jade-tint text-jade-strong',
+          )}
         >
           {notice.text}
         </p>
       )}
 
-      <section className="flex flex-col gap-3 rounded-lg border border-zinc-200 p-4 dark:border-zinc-800">
-        <div className="flex items-center justify-between gap-2">
-          <h2 className="text-lg font-semibold">{appointment.service.name}</h2>
-          <span
-            className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${
-              active
-                ? 'bg-green-100 text-green-800 dark:bg-green-950 dark:text-green-200'
-                : 'bg-zinc-200 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300'
-            }`}
-          >
-            {active ? 'Đã xác nhận' : cancelled ? 'Đã huỷ' : 'Đã hoàn thành'}
-          </span>
+      {/* Thẻ lịch hẹn: khối "tờ lịch" bên trái, chi tiết bên phải */}
+      <section
+        className={cn(
+          'grid overflow-hidden rounded-3xl border-2 border-hard bg-paper-raised shadow-[6px_6px_0_0_var(--hard)] sm:grid-cols-[11rem_1fr]',
+          cancelled && 'opacity-80',
+        )}
+      >
+        <div
+          className={cn(
+            'flex flex-col items-center justify-center gap-1 border-b-2 border-dashed border-ink/40 p-6 text-center sm:border-r-2 sm:border-b-0',
+            cancelled ? 'bg-paper-sunk' : 'bg-jade text-on-jade',
+          )}
+        >
+          <p className="text-xs font-bold tracking-[0.16em] uppercase">
+            {parts?.weekday ?? '…'}
+          </p>
+          <p className="font-display text-7xl leading-none font-black">
+            {parts?.day ?? '··'}
+          </p>
+          <p className="text-sm font-semibold">{parts?.month ?? ''}</p>
         </div>
 
-        <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-sm">
-          <dt className="text-zinc-500">Cơ sở</dt>
-          <dd>{appointment.business.name}</dd>
-          <dt className="text-zinc-500">Thời gian</dt>
-          <dd className={cancelled ? 'line-through' : 'font-medium'}>
-            {when}
-            {viewerTimezone && (
-              <span className="block text-xs font-normal text-zinc-500 no-underline">
-                {viewerTimezone}
-              </span>
+        <div className="flex flex-col gap-4 p-6">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <h2 className="font-display text-3xl leading-tight font-extrabold">
+                {appointment.service.name}
+              </h2>
+              <p className="text-ink-soft">{appointment.business.name}</p>
+            </div>
+            <Badge tone={active ? 'jade' : cancelled ? 'coral' : 'neutral'}>
+              {active ? 'Đã xác nhận' : cancelled ? 'Đã huỷ' : 'Đã hoàn thành'}
+            </Badge>
+          </div>
+
+          <p
+            className={cn(
+              'font-display text-4xl font-black',
+              cancelled && 'line-through decoration-2',
             )}
-          </dd>
-          {differentZone && (
-            <>
-              <dt className="text-zinc-500">Giờ tại cơ sở</dt>
-              <dd>{formatDateTime(appointment.startsAt, businessTimezone)}</dd>
-            </>
-          )}
-          <dt className="text-zinc-500">Thời lượng</dt>
-          <dd>{appointment.service.durationMinutes} phút</dd>
-          <dt className="text-zinc-500">Giá</dt>
-          <dd>
-            {formatPrice(appointment.service.price, appointment.service.currency)}
-          </dd>
-        </dl>
+          >
+            {parts?.time ?? '--:--'}
+            <span className="ml-2 text-base font-semibold text-ink-soft no-underline">
+              {viewerTimezone ?? ''}
+            </span>
+          </p>
+
+          <dl className="grid grid-cols-[auto_1fr] gap-x-6 gap-y-1.5 text-sm">
+            {differentZone && (
+              <>
+                <dt className="text-ink-soft">Giờ tại cơ sở</dt>
+                <dd className="font-medium">
+                  {formatDateTime(appointment.startsAt, businessTimezone)}
+                </dd>
+              </>
+            )}
+            <dt className="text-ink-soft">Thời lượng</dt>
+            <dd className="font-medium">{appointment.service.durationMinutes} phút</dd>
+            <dt className="text-ink-soft">Giá</dt>
+            <dd className="font-medium">
+              {formatPrice(appointment.service.price, appointment.service.currency)}
+            </dd>
+          </dl>
+        </div>
       </section>
 
       {active && !appointment.canChange && (
-        <p className="rounded-md border border-zinc-300 p-3 text-sm dark:border-zinc-700">
+        <p className="rounded-2xl border-[1.5px] border-marigold bg-marigold-soft px-5 py-4 text-sm font-medium text-ink">
           Đã quá hạn huỷ hoặc đổi lịch
           {viewerTimezone &&
             ` (hạn chót là ${formatDateTime(appointment.changeDeadline, viewerTimezone)})`}
@@ -140,50 +180,39 @@ export function ManageAppointment({
 
       {active && appointment.canChange && mode === 'view' && (
         <div className="flex flex-wrap gap-3">
-          <button
-            type="button"
+          <Button
+            size="lg"
             onClick={() => {
               setNotice(null);
               setMode('reschedule');
             }}
             disabled={!viewerTimezone}
-            className="rounded-md bg-zinc-900 px-4 py-2 text-white disabled:opacity-50 dark:bg-zinc-100 dark:text-zinc-900"
           >
             Đổi lịch
-          </button>
-          <button
-            type="button"
+          </Button>
+          <Button
+            variant="secondary"
+            size="lg"
             onClick={() => {
               setNotice(null);
               setMode('confirmCancel');
             }}
-            className="rounded-md border border-zinc-300 px-4 py-2 dark:border-zinc-700"
           >
             Huỷ lịch
-          </button>
+          </Button>
         </div>
       )}
 
       {active && mode === 'confirmCancel' && (
-        <section className="flex flex-col gap-3 rounded-lg border border-red-300 p-4 dark:border-red-900">
-          <p>Bạn chắc chắn muốn huỷ lịch hẹn này?</p>
-          <div className="flex gap-3">
-            <button
-              type="button"
-              onClick={cancelAppointment}
-              disabled={busy}
-              className="rounded-md bg-red-600 px-4 py-2 text-white disabled:opacity-50"
-            >
+        <section className="flex flex-col gap-4 rounded-3xl border-2 border-coral bg-coral-tint p-6">
+          <p className="font-semibold">Bạn chắc chắn muốn huỷ lịch hẹn này?</p>
+          <div className="flex flex-wrap gap-3">
+            <Button variant="danger" onClick={cancelAppointment} disabled={busy}>
               {busy ? 'Đang huỷ…' : 'Huỷ lịch hẹn'}
-            </button>
-            <button
-              type="button"
-              onClick={() => setMode('view')}
-              disabled={busy}
-              className="rounded-md border border-zinc-300 px-4 py-2 dark:border-zinc-700"
-            >
+            </Button>
+            <Button variant="secondary" onClick={() => setMode('view')} disabled={busy}>
               Giữ lịch
-            </button>
+            </Button>
           </div>
         </section>
       )}

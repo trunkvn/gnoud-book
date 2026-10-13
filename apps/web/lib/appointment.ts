@@ -42,6 +42,49 @@ export function formatDateTime(iso: string, timeZone: string): string {
   return `${get('hour')}:${get('minute')}, ${get('weekday')}, ${get('day')}/${get('month')}/${get('year')}`;
 }
 
+/** Tách một thời điểm thành các phần để dựng "tờ lịch": thứ, ngày, tháng, giờ (theo múi giờ `timeZone`). */
+export function dateParts(
+  iso: string,
+  timeZone: string,
+): { weekday: string; day: string; month: string; time: string } {
+  const parts = new Intl.DateTimeFormat('vi-VN', {
+    timeZone,
+    weekday: 'long',
+    day: '2-digit',
+    month: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+  }).formatToParts(new Date(iso));
+  const get = (type: Intl.DateTimeFormatPartTypes) =>
+    parts.find((part) => part.type === type)?.value ?? '';
+
+  return {
+    weekday: get('weekday'),
+    day: get('day'),
+    month: `Tháng ${get('month')}`,
+    time: `${get('hour')}:${get('minute')}`,
+  };
+}
+
+/**
+ * Hai múi giờ có cho cùng giờ địa phương tại thời điểm `iso` không. So theo kết quả chứ không so tên,
+ * vì nhiều tên là một nơi (Asia/Saigon = Asia/Ho_Chi_Minh) và hai nơi khác tên có thể cùng giờ.
+ */
+export function sameLocalTime(iso: string, zoneA: string, zoneB: string): boolean {
+  const key = (timeZone: string) =>
+    new Intl.DateTimeFormat('en-CA', {
+      timeZone,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      hourCycle: 'h23',
+    }).format(new Date(iso));
+  return key(zoneA) === key(zoneB);
+}
+
 /** "07:30" – chỉ phần giờ, theo múi giờ `timeZone`. */
 export function formatTimeOfDay(iso: string, timeZone: string): string {
   return new Intl.DateTimeFormat('vi-VN', {

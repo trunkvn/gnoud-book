@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { Suspense } from 'react';
 import { ManageAppointment } from '@/components/manage-appointment';
+import { PublicShell } from '@/components/public-shell';
 import { getManagedAppointment } from '@/lib/manage-api';
 
 export const metadata: Metadata = {
@@ -14,12 +15,12 @@ export const metadata: Metadata = {
 
 export default function ManagePage({ params }: PageProps<'/manage/[token]'>) {
   return (
-    <main className="mx-auto flex w-full max-w-xl flex-1 flex-col gap-6 p-6">
+    <PublicShell>
       {/* params là dữ liệu theo từng request nên phải nằm trong Suspense (Cache Components) */}
       <Suspense fallback={<ManageSkeleton />}>
         <Manage params={params} />
       </Suspense>
-    </main>
+    </PublicShell>
   );
 }
 
@@ -33,9 +34,9 @@ async function Manage({ params }: { params: Promise<{ token: string }> }) {
 
 function ManageSkeleton() {
   return (
-    <div className="flex animate-pulse flex-col gap-4" aria-busy="true">
-      <div className="h-8 w-2/3 rounded bg-zinc-200 dark:bg-zinc-800" />
-      <div className="h-40 rounded-lg bg-zinc-200 dark:bg-zinc-800" />
+    <div className="flex animate-pulse flex-col gap-5" aria-busy="true">
+      <div className="h-12 w-3/4 rounded-xl bg-paper-sunk" />
+      <div className="h-56 rounded-3xl bg-paper-sunk" />
     </div>
   );
 }
