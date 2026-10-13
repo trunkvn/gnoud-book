@@ -25,6 +25,11 @@ export class MailService {
       port: Number(config.get<string>('SMTP_PORT') ?? 1025),
       secure: config.get<string>('SMTP_SECURE') === 'true',
       auth: user ? { user, pass: config.get<string>('SMTP_PASS') } : undefined,
+      // Mặc định của nodemailer chờ tới 2 phút khi SMTP không phản hồi, lâu hơn cả thời hạn của job
+      // (120 giây). Cắt ngắn để lỗi hiện ra sớm và pg-boss thử lại.
+      connectionTimeout: 10_000,
+      greetingTimeout: 10_000,
+      socketTimeout: 30_000,
     });
   }
 
