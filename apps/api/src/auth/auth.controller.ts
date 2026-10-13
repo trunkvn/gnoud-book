@@ -7,6 +7,7 @@ import {
   Res,
   UseGuards,
 } from '@nestjs/common';
+import { ApiCookieAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { ConfigService } from '@nestjs/config';
 import type { CookieOptions, Response } from 'express';
 import { AUTH_COOKIE, AUTH_COOKIE_MAX_AGE_MS } from './auth.constants.js';
@@ -18,12 +19,13 @@ import { RegisterDto } from './dto/register.dto.js';
 import { JwtAuthGuard } from './jwt-auth.guard.js';
 
 @Controller('auth')
+@ApiTags('Auth')
 export class AuthController {
   constructor(
     private readonly auth: AuthService,
     private readonly config: ConfigService,
   ) {}
-
+  @ApiOperation({ summary: 'Đăng ký chủ cơ sở (tạo luôn cơ sở đầu tiên)' })
   @Post('register')
   async register(
     @Body() dto: RegisterDto,
@@ -33,7 +35,7 @@ export class AuthController {
     res.cookie(AUTH_COOKIE, token, this.cookieOptions());
     return user;
   }
-
+  @ApiOperation({ summary: 'Đăng nhập, server đặt cookie access_token' })
   @Post('login')
   @HttpCode(200)
   async login(
@@ -44,13 +46,14 @@ export class AuthController {
     res.cookie(AUTH_COOKIE, token, this.cookieOptions());
     return user;
   }
-
+  @ApiOperation({ summary: 'Đăng xuất, xoá cookie' })
   @Post('logout')
   @HttpCode(204)
   logout(@Res({ passthrough: true }) res: Response) {
     res.clearCookie(AUTH_COOKIE, this.cookieOptions());
   }
-
+  @ApiOperation({ summary: 'Thông tin người đang đăng nhập' })
+  @ApiCookieAuth()
   @Get('me')
   @UseGuards(JwtAuthGuard)
   me(@CurrentUser() user: AuthUser) {
