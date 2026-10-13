@@ -1,6 +1,5 @@
+import { DATE_PATTERN } from '../../common/patterns.js';
 import { IsOptional, IsTimeZone, IsUUID, Matches } from 'class-validator';
-
-const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
 export class SlotsQueryDto {
   /** Dịch vụ khách muốn đặt (cần để biết thời lượng) */
