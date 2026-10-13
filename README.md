@@ -26,7 +26,7 @@
 **Khách** (không cần tài khoản)
 - Trang đặt lịch `/book/<slug>`: chọn dịch vụ, chọn ngày/giờ **theo múi giờ của mình** (đổi được ngay trên trang), nhập tên và email
 - Email xác nhận; email nhắc **trước 24 giờ** do job nền gửi
-- Huỷ hoặc đổi lịch qua đường dẫn trong email (`/manage/<token>`), đến trước giờ hẹn 2 giờ
+- Huỷ hoặc đổi lịch qua đường dẫn trong email (`/manage/<token>`), đến trước giờ hẹn 2 giờ (và chỉ đặt được các giờ còn ít nhất 2 giờ nữa, nên mọi lịch đã đặt đều còn đổi/huỷ được)
 
 ## Kiến trúc
 
@@ -127,6 +127,20 @@ pnpm --filter @gnoud-book/api mail:test ban@gmail.com
 - **Khi triển khai thật**: dùng dịch vụ email giao dịch (Resend, Brevo, Amazon SES...) với tên miền riêng đã khai báo SPF/DKIM, nếu không thư dễ vào mục spam.
 - **Dữ liệu demo** dùng địa chỉ `@example.com` (không có hộp thư thật). Chỉ nên nạp demo khi đang dùng Mailpit, vì job nhắc lịch sẽ cố gửi thư tới các địa chỉ đó.
 
+## Chạy ở production
+
+API từ chối khởi động khi `NODE_ENV=production` mà cấu hình sẽ chạy sai một cách âm thầm. Các biến cần đặt:
+
+| Biến | Yêu cầu |
+|---|---|
+| `JWT_SECRET` | chuỗi ngẫu nhiên ≥ 32 ký tự, không phải giá trị mẫu (`openssl rand -base64 48`) |
+| `WEB_URL` | địa chỉ công khai của web, vì email dùng nó để tạo liên kết quản lý lịch |
+| `SMTP_HOST` (+ `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `MAIL_FROM`) | dịch vụ SMTP thật, không phải localhost |
+| `TRUST_PROXY` | số lớp proxy đứng trước API (vd `1`). Không đặt thì API không tin `X-Forwarded-For`, và sau proxy mọi khách sẽ bị tính chung một IP khi giới hạn tốc độ |
+| `SWAGGER_ENABLED` | mặc định `/docs` tắt ở production; đặt `true` nếu muốn bật |
+
+Bảo vệ đã có: giới hạn tốc độ theo IP (120 request/phút chung; đăng nhập, đăng ký và đặt lịch công khai 10/phút; huỷ/đổi lịch 20/phút; `/health` được miễn), header bảo mật bằng helmet, cookie đăng nhập `httpOnly` + `secure` + `sameSite=lax`.
+
 ## Kiểm thử và chất lượng
 
 ```bash
@@ -163,9 +177,8 @@ Phong cách "biên tập": giấy xanh nhạt có hạt, chữ tiêu đề serif
 
 ## Hạn chế đã biết và hướng phát triển
 
-- Chưa giới hạn tần suất (rate limiting) cho endpoint công khai: có thể bị lợi dụng để gửi email rác tới địa chỉ người khác nhập.
 - Một cơ sở = một lịch chung (chưa có nhiều nhân viên, mỗi người một lịch).
 - Chủ cơ sở huỷ được lịch nhưng chưa tự đổi giờ giúp khách.
-- Khách đặt cách giờ hẹn dưới 2 giờ thì không tự đổi/huỷ được trên mạng (giờ đặt tối thiểu là 60 phút, hạn chót đổi/huỷ là 2 giờ).
-- Chưa có thanh toán, chưa đa ngôn ngữ, `/docs` (Swagger) nên được bảo vệ khi triển khai thật.
+- Chưa có thanh toán, chưa đa ngôn ngữ.
+- Rate limit đếm trong bộ nhớ của từng tiến trình API: chạy nhiều instance thì cần kho chung (vd Redis).
 - Kiểm thử giao diện hiện làm thủ công bằng Playwright, chưa nằm trong repo.
