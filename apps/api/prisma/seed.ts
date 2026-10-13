@@ -1,6 +1,8 @@
 // Nạp dữ liệu demo: một chủ cơ sở, một cơ sở có dịch vụ, giờ làm việc và lịch hẹn rải trong hai tuần.
 // Chạy: pnpm --filter @gnoud-book/api db:seed
 // Chạy lại được nhiều lần: mỗi lần xoá tài khoản demo cũ (kéo theo mọi dữ liệu của nó) rồi tạo mới.
+// Thêm `--no-emails` khi nạp vào server có SMTP thật: đánh dấu mọi lịch demo là "đã nhắc rồi" để job nhắc
+// lịch không gửi thư tới các địa chỉ @example.com giả.
 import 'dotenv/config';
 import { PrismaPg } from '@prisma/adapter-pg';
 import bcrypt from 'bcryptjs';
@@ -16,6 +18,8 @@ if (process.env.NODE_ENV === 'production' && !process.argv.includes('--force')) 
   console.error('Từ chối nạp dữ liệu demo ở production. Thêm --force nếu bạn thực sự muốn.');
   process.exit(1);
 }
+
+const quiet = process.argv.includes('--no-emails');
 
 const prisma = new PrismaClient({
   adapter: new PrismaPg({
@@ -70,6 +74,7 @@ try {
   await prisma.appointment.createMany({
     data: appointments.map(({ serviceIndex, ...a }) => ({
       ...a,
+      ...(quiet ? { reminderSentAt: new Date() } : {}),
       businessId: business.id,
       serviceId: serviceIds[serviceIndex],
     })),
